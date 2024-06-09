@@ -73,7 +73,7 @@ void Game::renderNewMultiScattTexPS()
 	g_dx11Device->setNullCsResources(context);
 	g_dx11Device->setNullCsUnorderedAccessViews(context);
 
-	NewMuliScattLutCS->setShader(*context);
+	NewMultiScattLutCS->setShader(*context);
 	SetCommon();
 	context->CSSetUnorderedAccessViews(0, 1, &MultiScattTex->mUnorderedAccessView, nullptr);
 	DispatchCS(MultiScattStep0Tex->mDesc.Width, MultiScattStep0Tex->mDesc.Height);
@@ -148,7 +148,7 @@ void Game::renderPathTracing()
 
 		GpuDebugState& gds = mUpdateDebugState ? mDebugState : mDummyDebugState;
 		D3dUnorderedAccessView* const uavs[2] = { gds.gpuDebugLineBufferUAV, gds.gpuDebugLineDispatchIndUAV };
-		UINT const uavInitCounts[2] = { -1, -1 };
+		UINT const uavInitCounts[2] = { UINT(-1), UINT(-1) };
 		if (GameMode)
 		{
 			context->OMSetRenderTargetsAndUnorderedAccessViews(1, &mFrameAtmosphereBuffer->mRenderTargetView, nullptr, 2, 2, uavs, uavInitCounts);

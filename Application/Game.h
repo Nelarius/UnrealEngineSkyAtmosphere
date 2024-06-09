@@ -317,7 +317,7 @@ private:
 	PixelShader* RenderTransmittanceLutPS;
 	PixelShader* SkyViewLutPS[MultiScatApproxCount];
 	PixelShader* CameraVolumesRayMarchPS[MultiScatApproxCount];
-	ComputeShader*  NewMuliScattLutCS;
+	ComputeShader*  NewMultiScattLutCS;
 
 	// UI
 	float uiCamHeight = 0.5f;
@@ -331,12 +331,10 @@ private:
 	bool uiDataInitialised = false;
 
 	enum {
-		MethodBruneton2017 = 0,
-		MethodPathTracing,
-		MethodRaymarching,
+		MethodPathTracing = 0,
 		MethodCount
 	};
-	int  uiRenderingMethod = MethodRaymarching;
+	int  uiRenderingMethod = MethodPathTracing;
 	bool MethodSwitchDebug = true;
 	int uiViewRayMarchMinSPP = 4;
 	int uiViewRayMarchMaxSPP = 14;

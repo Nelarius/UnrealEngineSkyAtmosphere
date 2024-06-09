@@ -80,12 +80,9 @@ void Game::loadShaders(bool firstTimeLoadShaders)
 		Macros macros;
 		ShaderMacro illuMode = { "ILLUMINANCE_IS_ONE", GetStringNumber(1) };
 		macros.push_back(illuMode);
-		success &= reload(&NewMuliScattLutCS, L"Resources\\RenderSkyRayMarching.hlsl", "NewMultiScattCS", firstTimeLoadShaders, &macros, lazyCompilation); 
+		success &= reload(&NewMultiScattLutCS, L"Resources\\RenderSkyRayMarching.hlsl", "NewMultiScattCS", firstTimeLoadShaders, &macros, lazyCompilation);
 	}
 
-	success &= reload(&CameraVolumesPS, L"Resources\\RenderWithLuts.hlsl", "RenderCameraVolumesPS", firstTimeLoadShaders, nullptr, lazyCompilation);
-	
-	success &= reload(&RenderWithLutPS, L"Resources\\RenderWithLuts.hlsl", "RenderWithLutsPS", firstTimeLoadShaders, nullptr, lazyCompilation);	
 	success &= reload(&RenderTransmittanceLutPS, L"Resources\\RenderSkyRayMarching.hlsl", "RenderTransmittanceLutPS", firstTimeLoadShaders, nullptr, lazyCompilation);
 
 	for (int ds = MultiScatApproxDisabled; ds < MultiScatApproxCount; ++ds)
@@ -186,7 +183,7 @@ void Game::releaseShaders()
 	resetPtr(&IndirectIrradianceLutPS);
 	resetPtr(&MultipleScatteringLutPS);
 
-	resetPtr(&NewMuliScattLutCS);
+	resetPtr(&NewMultiScattLutCS);
 
 	resetPtr(&CameraVolumesPS);
 
@@ -253,7 +250,6 @@ void Game::initialise()
 
 	////////// Create other resources
 
-	D3dDevice* device = g_dx11Device->getDevice();
 	const D3dViewport& viewport = g_dx11Device->getBackBufferViewport();
 	allocateResolutionIndependentResources();
 	allocateResolutionDependentResources(uint32(viewport.Width), uint32(viewport.Height));
@@ -374,7 +370,7 @@ void Game::allocateResolutionIndependentResources()
 	D3dRasterizerDesc RSDesc = RasterizerState::initDefaultState();
 	RSDesc.CullMode = D3D11_CULL_NONE;
 	RSDesc.DepthBias = 5.0;
-	RSDesc.SlopeScaledDepthBias = 5.0;
+	RSDesc.SlopeScaledDepthBias = float(5.0);
 	mShadowRasterizerState = new RasterizerState(RSDesc);
 
 	SamplerLinear = new SamplerState(SamplerState::initLinearClamp());
@@ -575,22 +571,6 @@ void Game::update(const WindowInputData& inputData)
 		}
 		if (event.type == etKeyDown && event.key == kC)
 			takeScreenShot = true;
-		if (event.type == etKeyDown && event.key == kT)
-		{
-			if (MethodSwitchDebug)
-			{
-				uiRenderingMethod = MethodPathTracing;
-				currentMultipleScatteringFactor = 0.0f;
-			}
-			else
-			{
-				uiRenderingMethod = MethodRaymarching;
-				currentMultipleScatteringFactor = 1.0f;
-			}
-			MethodSwitchDebug = !MethodSwitchDebug;
-			mFrameId = 0;
-		}
-
 		if (event.type == etKeyDown && event.key == kF5)
 			SaveState();
 		else if (event.type == etKeyDown && event.key == kF9)
@@ -710,7 +690,7 @@ void Game::updateSkyAtmosphereConstant()
 		cb.bottom_radius = AtmosphereInfos.bottom_radius;
 		cb.top_radius = AtmosphereInfos.top_radius;
 		cb.MultipleScatteringFactor = currentMultipleScatteringFactor;
-		cb.MultiScatteringLUTRes = MultiScatteringLUTRes;
+		cb.MultiScatteringLUTRes = float(MultiScatteringLUTRes);
 
 		//
 		cb.TRANSMITTANCE_TEXTURE_WIDTH = LutsInfo.TRANSMITTANCE_TEXTURE_WIDTH;
@@ -865,41 +845,19 @@ void Game::render()
 		ImGui::Begin("Render method/Tech");
 
 		uiRenderingMethodPrev = uiRenderingMethod;
-		const char* listbox_renderingMethods[] = { "Bruneton 2017", "Path Tracing", "NEW Ray Marching"};
-		ImGui::Combo("Render method", &uiRenderingMethod, listbox_renderingMethods, MethodCount, 3);
 
 		transPermutationPrev = currentTransPermutation;
 		shadowPermutationPrev = currentShadowPermutation;
 		RenderTerrainPrev = RenderTerrain;
-		if (uiRenderingMethod == MethodPathTracing || uiRenderingMethod == MethodRaymarching)
+		if (uiRenderingMethod == MethodPathTracing)
 		{
-			if (uiRenderingMethod == MethodPathTracing)
-			{
-				const char* listbox_transmittanceMethods[] = { "TransmittanceDeltaTracking", "TransmittanceRatioTracking", "TransmittanceLUT" };
-				ImGui::Combo("Trans method", &currentTransPermutation, listbox_transmittanceMethods, TransmittanceMethodCount, 3);
-			}
-
+			const char* listbox_transmittanceMethods[] = { "TransmittanceDeltaTracking", "TransmittanceRatioTracking", "TransmittanceLUT" };
+			ImGui::Combo("Trans method", &currentTransPermutation, listbox_transmittanceMethods, TransmittanceMethodCount, 3);
 			ImGui::Checkbox("ShadowMap", &currentShadowPermutation);
 			ImGui::Checkbox("Terrain", &RenderTerrain);
 		}
 
-		if (uiRenderingMethod == MethodRaymarching)
-		{
-			ImGui::SliderInt("Min SPP", &uiViewRayMarchMinSPP, 1, 30);
-			ImGui::SliderInt("Max SPP", &uiViewRayMarchMaxSPP, 2, 31);
-			ImGui::Checkbox("FastSky",  &currentFastSky);
-			ImGui::Checkbox("FastAerialPersepctive",  &currentAerialPerspective);
-			if(!currentAerialPerspective)
-				ImGui::Checkbox("RGB Transmittance",  &currentColoredTransmittance);
-		}
-
 		multipleScatteringFactorPrev = currentMultipleScatteringFactor;
-		if (uiRenderingMethod != MethodBruneton2017)
-		{
-			ImGui::SliderFloat("Multi-Scattering approx", &currentMultipleScatteringFactor, 0.0f, 1.0f);
-			if (ImGui::IsItemHovered())
-				ImGui::SetTooltip("If DualScattering>0, the path tracer will use it and stop at the first path depth.");
-		}
 
 		ImGui::End();
 		////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1006,12 +964,9 @@ void Game::render()
 
 	{
 		GPU_SCOPED_TIMEREVENT(SkyRender, 255, 255, 255);
-		if (uiRenderingMethod != MethodBruneton2017)
-		{
-			renderTransmittanceLutPS();
-		}
+		renderTransmittanceLutPS();
 
-		if(uiRenderingMethod == MethodRaymarching || (uiRenderingMethod == MethodPathTracing && currentMultipleScatteringFactor > 0.0f))
+		if(currentMultipleScatteringFactor > 0.0f)
 		{
 			renderNewMultiScattTexPS();
 		}
@@ -1020,13 +975,6 @@ void Game::render()
 		{
 			renderPathTracing();
 			RenderSkyAtmosphereOverOpaque();
-		}
-		else if (uiRenderingMethod == MethodRaymarching)
-		{
-			if (currentFastSky)
-				renderSkyViewLut();
-			generateSkyAtmosphereCameraVolumeWithRayMarch();
-			renderRayMarching();
 		}
 		else
 		{

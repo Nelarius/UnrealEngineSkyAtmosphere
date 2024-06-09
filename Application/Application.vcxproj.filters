@@ -114,9 +114,6 @@
     <FxCompile Include="..\Resources\SkyAtmosphereCommon.hlsl">
       <Filter>HLSL</Filter>
     </FxCompile>
-    <FxCompile Include="..\Resources\RenderWithLuts.hlsl">
-      <Filter>HLSL</Filter>
-    </FxCompile>
     <FxCompile Include="..\Resources\GpuDebugPrimitives.hlsl">
       <Filter>HLSL</Filter>
     </FxCompile>
